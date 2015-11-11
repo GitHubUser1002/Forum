@@ -5,7 +5,8 @@ var config = require('../config');
 var authentication = require('../authentication');
 
 router.get('/account', authentication.ensureAuthenticated, function (req, res) {
-    res.json('hey!')
+    //todo
+    res.json('todo')
     //res.render('account', { user: req.user });
 });
 
