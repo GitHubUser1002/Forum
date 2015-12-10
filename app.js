@@ -4,75 +4,11 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var session = require('client-sessions');
+var Session = require('express-session');
 var config = require('./config');
-
-var passport = require('passport');
-var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
-
-var GOOGLE_CLIENT_ID = config.googleClientId;
-var GOOGLE_CLIENT_SECRET = config.googleClientSecret;
-
-// Passport session setup.
-//   To support persistent login sessions, Passport needs to be able to
-//   serialize users into and deserialize users out of the session.  Typically,
-//   this will be as simple as storing the user ID when serializing, and finding
-//   the user by ID when deserializing.  However, since this example does not
-//   have a database of user records, the complete Google profile is
-//   serialized and deserialized.
-passport.serializeUser(function (user, done) {
-    done(null, user);
-});
-
-passport.deserializeUser(function (obj, done) {    
-    done(null, obj);
-});
-
-var User = require('./models/user.js');
 
 var mongoose = require('mongoose');
 var db = mongoose.connect(config.dbConnectionString);
-
-passport.use(new GoogleStrategy({
-    clientID: GOOGLE_CLIENT_ID,
-    clientSecret: GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback"
-},
-  function (accessToken, refreshToken, profile, done) {
-    // asynchronous verification, for effect...
-        process.nextTick(function () {
-            User.findOne({ emailAddress: profile.emails[0].value, strategy: 'Google' }, function (err, user) {
-                if (err) {
-                    console.log(err); 
-                }
-                else if (user) {
-                    console.log(user.displayName + ' logged in!'); // Space Ghost is a talk show host.
-                }
-                else {
-                    var newUser = new User({
-                        strategy : 'Google',
-                        emailAddress : profile.emails[0].value,
-                        displayName : profile.displayName
-                    });
-                    newUser.save(function (err) {
-                        if (!err) {
-                            console.log('New user created');
-                            console.log(newUser);
-                        } 
-                        else console.log(err);
-                    });
-                }      
-            });
-    });
-    
-    // To keep the example simple, the user's Google profile is returned to
-    // represent the logged-in user.  In a typical application, you would want
-    // to associate the Google account with a user record in your database,
-    // and return that user instead.
-
-    return done(null, profile);
-}
-));
 
 var app = express();
 
@@ -89,15 +25,53 @@ app.use(cookieParser());
 app.use(require('stylus').middleware(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(session({
+var sessionStore = new (require("connect-mongo")(Session))({
+        //url: ''
+        mongooseConnection: mongoose.connection
+    });
+var session = Session({
     cookieName: 'session',
+    key:    config.key,
     secret: config.secret,
-    duration: 30 * 60 * 1000,
-    activeDuration: 5 * 60 * 1000,
-}));
+    resave: true,
+    saveUninitialized: true,
+    //duration: 30 * 60 * 1000,
+    //activeDuration: 5 * 60 * 1000,
+    store: sessionStore
+});
+app.use(session);
 
+var http = require('http').Server(app);
+ 
+var passport = require('./passportContext');
 app.use(passport.initialize());
 app.use(passport.session());
+
+var io = require("socket.io")(http);
+
+var passportEventHandlers = require('./passportEventHandlers');
+var passportSocketIo = require("passport.socketio");
+io.use(passportSocketIo.authorize({
+    passport    :   passport,
+    cookieParser:   cookieParser,       // the same middleware you registrer in express
+    key         :   config.key,
+    secret      :   config.secret,
+    store       :   sessionStore,        // we NEED to use a sessionstore. no memorystore please
+    success     :   passportEventHandlers.onAuthorizeSuccess,  // *optional* callback on success - read more below
+    fail        :   passportEventHandlers.onAuthorizeFail,     // *optional* callback on fail/error - read more below
+}));
+
+io.use(function(socket, next){
+    session(socket.handshake, {}, function(err){
+        if (err) return next(err);     
+        
+        return next();
+    });
+});
+
+var socketEventHandlers = require('./socketEventHandlers');
+socketEventHandlers.initialize(io, mongoose);
+io.on('connection', socketEventHandlers.onConnection);
 
 var index = require('./routes/index');
 app.use('/', index);
@@ -105,6 +79,10 @@ var login = require('./routes/login');
 app.use('/', login);
 var account = require('./routes/account');
 app.use('/', account);
+var public = require('./routes/public');
+app.use('/', public);
+console.log(__dirname);
+app.use(express.static(__dirname + '/public'));
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -137,4 +115,4 @@ app.use(function (err, req, res, next) {
     });
 });
 
-module.exports = app;
+module.exports = http;

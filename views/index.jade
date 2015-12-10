@@ -1,5 +1,11 @@
-extends layout
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='#{url}/public/style.css')
+  body(onload="getLocation();")
+    h1= title
+    p Welcome to #{title}
 
-block content
-  h1= title
-  p Welcome to #{title}
+    script(src="https://code.jquery.com/jquery-1.10.2.min.js")
+    script(src="#{url}/public/index.js")

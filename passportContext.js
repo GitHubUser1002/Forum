@@ -49,7 +49,7 @@ passport.use(new GoogleStrategy({
                     newUser.save(function (err) {
                         if (!err) {
                             console.log('New user created');
-                            console.log(newUser);
+                            //console.log(newUser);
                         } 
                         else console.log(err);
                     });
