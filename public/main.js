@@ -1,21 +1,28 @@
 var socket = io();
 
 $('form').submit(function(){
-    socket.emit('new message', $('#m').val());
+    socket.emit('new message', {
+        message: $('#m').val(),
+        parentMessageId: null
+    });
+    
+    //$('#messages').append($('<li>').text('You: ' + $('#m').val()));
+    
     $('#m').val('');
+    
     return false;
 });
 
-socket.on('new message', function(msg){
-    $('#messages').append($('<li>').text(msg));
+socket.on('new message', function(payload){
+    $('#messages').append($('<li>').text("[" + payload.timestamp + "] " + payload.username + ": " + payload.message));
 });
 
 socket.on('user joined', function (data) {
-
+    $('#messages').append($('<li>').text(data.username + ' joined'));
 });
 
 socket.on('user left', function (data) {
-
+    $('#messages').append($('<li>').text(data.username + ' left'));
 });
 
 socket.on('typing', function (data) {
