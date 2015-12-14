@@ -14,7 +14,27 @@ $('form').submit(function(){
 });
 
 socket.on('new message', function(payload){
-    $('#messages').append($('<li>').text("[" + payload.timestamp + "] " + payload.username + ": " + payload.message));
+    $('#messages')
+        .append(
+            $('<li>').attr({"id":payload.id})
+                .append($('<div>')
+                    .attr(
+                        {
+                            "class":"well"
+                        }
+                    )
+                    .append($('<div>')
+                        .attr(
+                            {
+                                "class":"label"
+                            }
+                        )
+                        .append($('<span class="name">').text(payload.username))
+                        .append($('<span class="time">').text(payload.timestamp))
+                    )
+                    .append($('<div>').text(payload.message))
+                 )
+        );
 });
 
 socket.on('user joined', function (data) {
