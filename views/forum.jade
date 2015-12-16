@@ -1,12 +1,13 @@
 extends layout
 
 block content
-  h1=forum
-  ul(class="pages", id="messages")
-  form(action="")
-    input(class="inputMessage", id="m" autocomplete="off", placeholder="Type here...")
-    button send
-            
-    script(src="https://code.jquery.com/jquery-1.10.2.min.js")
-    script(src="/socket.io/socket.io.js")
-    script(src="#{url}/public/main.js")
+    div(id='messageContainer', class='', style="margin-top:25px")
+        h1=forum
+        ul(class="pages", id="messages")
+        form(action="")
+            input(class="inputMessage", id="m" autocomplete="off", placeholder="Type here...")
+            button(class="btn btn-default") send
+
+            script(src="https://code.jquery.com/jquery-1.10.2.min.js")
+            script(src="/socket.io/socket.io.js")
+            script(src="#{url}/public/main.js")

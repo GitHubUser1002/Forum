@@ -5,13 +5,24 @@ $('form').submit(function(){
         message: $('#m').val(),
         parentMessageId: null
     });
-    
+
     //$('#messages').append($('<li>').text('You: ' + $('#m').val()));
     
     $('#m').val('');
     
     return false;
 });
+
+function updateScroll(){
+    //alert($("#messageContainer").height())
+    $("#body").animate({ scrollTop: $("#messageContainer").height() }, 0);
+}
+
+(function($) {
+    $.fn.hasScrollBar = function() {
+        return this.get(0).scrollHeight > this.height();
+    }
+})(jQuery);
 
 socket.on('new message', function(payload){
     $('#messages')
@@ -20,9 +31,10 @@ socket.on('new message', function(payload){
                 .append($('<div>')
                     .attr(
                         {
-                            "class":"well"
+                            "class":"well",
+                            "style":"display:none"
                         }
-                    )
+                    ).hide().fadeIn(1500)
                     .append($('<div>')
                         .attr(
                             {
@@ -35,6 +47,8 @@ socket.on('new message', function(payload){
                     .append($('<div>').text(payload.message))
                  )
         );
+    
+    updateScroll();
 });
 
 socket.on('user joined', function (data) {

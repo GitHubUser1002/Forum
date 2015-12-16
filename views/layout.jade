@@ -3,5 +3,21 @@ html
   head
     title= title
     link(rel='stylesheet', href='#{url}/public/style.css')
-  body
+    link(rel='stylesheet', href='#{url}/public/bootstrap.min.css')
+    link(rel='stylesheet', href='#{url}/public/carousel.css')
+  body(id="body", onload="getLocation();")
+    nav(class="navbar navbar-inverse navbar-fixed-top")
+        div(class="container")
+            div(class="navbar-header")
+                a(class="navbar-brand", href="#") #{title}
+            div(id="navbar", class="collapse navbar-collapse")
+                ul(class="nav navbar-nav")
+                    li(class="#{homeclass}")
+                        a(href="/") Home
+                    li(class="#{forumclass}")
+                        a(href="#{forumurl}") #{forumtext}
     block content
+    
+    script(src="https://code.jquery.com/jquery-1.10.2.min.js")
+    script(src="#{url}/public/index.js")
+    script(src="#{url}/public/bootstrap.min.js")
