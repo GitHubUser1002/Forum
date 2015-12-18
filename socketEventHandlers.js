@@ -15,13 +15,14 @@ function onUserConnect(socket, user, postalCode) {
 }
 
 function getLastPosts(locationId, socketid) {
-    Message.find({ locationKey : locationId })
+    Message.find({ locationKey : locationId, parentMessageKey : null })
         .sort({ timeStamp : 'asc' })
         .limit(25)
         .populate('userKey')
         .exec(function(err, messages) {
             messages.forEach(function(message) {
                 var socket = io.sockets.connected[socketid];
+                
                 socket.emit('new message', {
                                 username: message.userKey.displayName,
                                 message: message.body,
@@ -29,6 +30,38 @@ function getLastPosts(locationId, socketid) {
                                 id : message._id
                             });
         });
+    });
+}
+
+function getChildPosts(parentId, fn) {
+    Message.find({ parentMessageKey : parentId })
+        .sort({ timeStamp : 'asc' })
+        .populate('userKey')
+        .exec(function(err, messages) {
+            var payload = [];
+        
+            for (var idx in messages) {
+                var message = messages[idx];
+                payload.push({
+                   username: message.userKey.displayName,
+                   message: message.body,
+                   timestamp: message.timeStamp,
+                   id : message._id,
+                   parentId : message.parentMessageKey
+               })
+            }
+        
+            fn(payload);
+        
+           /* messages.forEach(function(message) {
+               fn({
+                   username: message.userKey.displayName,
+                   message: message.body,
+                   timestamp: message.timeStamp,
+                   id : message._id,
+                   parentId : message.parentMessageKey
+               });
+        });*/
     });
 }
 
@@ -64,15 +97,25 @@ function onNewMessage(socket, data, user, postalCode) {
                         userKey : usr._id
                     });
     
-    message.save(function (err) {
+        message.save(function (err) {
                         if (!err) {
                             console.log('Messsage saved');
+                            
+                            if (data.parentMessageId) {
+                                Message.count({ parentMessageKey : data.parentMessageId }, function(err, c) {
+                                    broadcastToPostalCode(postalCode, 'messageCountUpdate', {
+                                        id              :   data.parentMessageId,
+                                        responseCount    :   c
+                                    });
+                                }); 
+                            }
                             
                             broadcastToPostalCode(postalCode, 'new message', {
                                 username: socket.request.user.displayName,
                                 message: message.body,
                                 timestamp: message.timeStamp,
-                                id : message._id
+                                id : message._id,
+                                parentid : message.parentMessageKey
                             });
                         } 
                         else console.log(err);
@@ -104,6 +147,16 @@ function subscribe(socket, user, postalCode) {
     socket.on('new message', function (data) { onNewMessage(socket, data, user, postalCode); });
 
     socket.on('disconnect', function () { onDisconnect(socket, user, postalCode); });
+    
+    socket.on('messageCount', function (arg, fn) {
+        Message.count({ parentMessageKey : arg.parentMessageId }, function(err, c) {
+            fn(c);
+        });
+    });
+    
+    socket.on('childMessages', function (arg, fn) {
+        getChildPosts(arg.parentMessageId, fn);
+    });
 };
 
 module.exports = {

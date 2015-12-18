@@ -12,16 +12,24 @@ var User = require('../models/user.js');
 router.use(bodyParser.urlencoded({ extended: false }));
 router.use(bodyParser.json());
 
+var message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras efficitur, nibh sit amet pharetra facilisis, odio mauris ultricies velit, vitae finibus justo eros a diam. Pellentesque gravida sagittis bibendum. Suspendisse suscipit dignissim quam, sed placerat orci tincidunt eget. Nullam egestas leo sed facilisis eleifend. Cras mollis nisl sed auctor consectetur. Nullam augue est, varius laoreet enim at, lacinia pretium ipsum. Nulla interdum vulputate augue nec tristique. Fusce semper, nisi sed sollicitudin cursus, sapien sem venenatis quam, non rutrum tortor nisi sit amet dui. Ut mollis sem a lorem finibus, at vehicula lectus accumsan. Vestibulum egestas diam velit, egestas dapibus nibh tristique vitae. Nullam interdum tincidunt viverra. Vivamus in risus diam.\nVestibulum faucibus sapien auctor dolor commodo, eu posuere mi congue. Etiam ut purus diam. Sed erat lectus, accumsan quis nisl id, faucibus consequat nibh. Nullam quis elementum libero, ut ornare purus. Sed leo mauris, consectetur sit amet auctor vel, ornare et nunc. Ut euismod posuere augue, sed laoreet nisi aliquet a. In velit elit, mattis at nisi in, pellentesque egestas est. Aenean consectetur ornare ex, sed tempus nisi ultricies id. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.\nAenean eget tempor nunc. Nunc eget porta enim. Ut malesuada ornare pretium. Sed non dui quis nibh fermentum tristique. Nunc quis neque vehicula, faucibus augue id, maximus dui. In ut turpis eu turpis porttitor fringilla. Etiam eu metus sed sem dictum lobortis congue a magna. Nam eu sem mattis, scelerisque mi vehicula, mattis libero. Aliquam non ornare mi. Maecenas commodo accumsan facilisis. Vivamus ornare sed dui sit amet semper. Pellentesque nec pharetra velit.\nQuisque feugiat ullamcorper erat, id condimentum ex placerat eget. Sed sed eros eros. Proin venenatis tempus venenatis. Morbi efficitur euismod eros, at maximus nibh fermentum at. Suspendisse a libero at magna dignissim fermentum. Nunc ut tortor dui. Aliquam facilisis laoreet orci a luctus. Cras tempor quam eu nisl efficitur, ac aliquet nibh posuere. Sed sed lectus aliquam, euismod ligula et, suscipit justo. Donec bibendum vitae velit a egestas. Aliquam erat volutpat.\nNulla eget odio sollicitudin, gravida nisl sit amet, porttitor mi. Mauris nec eros mollis, eleifend felis eget, finibus felis. Vivamus ac urna auctor, facilisis nulla ut, eleifend mauris. Sed efficitur enim non facilisis pellentesque. Cras lacinia varius tempus. Nulla eu dictum odio. Sed id odio non urna fringilla laoreet. Morbi vitae arcu lacinia, finibus dui eu, tempus est. Quisque vitae tempus lacus. Cras ullamcorper quam vel diam eleifend eleifend.";
+
 /* GET home page. */
 router.get('/', function (req, res) {
     var hostname = req.headers.host;
-    res.render('index', { title: 'Express', url : 'http://' + hostname.replace(':'+(process.env.PORT || 3000), '')  });
+    var forumurl = "/auth/google";
+    var forumtext = "Login";
+    if (req.isAuthenticated())  {
+        forumurl = "/forum";
+        forumtext = "Forum";
+    }
+    res.render('index', { title: 'forum', url : 'http://' + hostname.replace(':'+(process.env.PORT || 3000), ''), content: message, homeclass:"active", forumurl:forumurl, forumtext:forumtext });
 });
 
 router.get('/forum', function (req, res) {
     //console.log(req.user);
     var hostname = req.headers.host;
-    res.render('forum', { title: 'forum', url : 'http://' + hostname.replace(':'+(process.env.PORT || 3000), '') });
+    res.render('forum', { title: 'forum', url : 'http://' + hostname.replace(':'+(process.env.PORT || 3000), ''), forumclass:"active", forumurl:"/forum", forumtext:"Forum" });
 });
 
 router.post('/RecordPosition', function (req, res) {
