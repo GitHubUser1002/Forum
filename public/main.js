@@ -1,12 +1,44 @@
 var socket = io();
 
-$('form').submit(function(){
-    socket.emit('new message', {
-        message: $('#m').val(),
+$(document).ready(function () {
+    $(window).scroll(function () {
+        if ($(this).scrollTop() > 100) {
+            if ($('.scrollup').css("visibility") != "hidden") {
+                $('.scrollup').hide();
+            }
+        } else {
+            $('.scrollup').fadeIn(750, function() { });
+        }
+    });
+    
+    if ($("body").height() < $(window).height()) {
+        $('.scrollup').fadeIn(2000);
+    }
+
+    $('.scrollup').click(function () {
+        getOlderMessages();
+        return false;
+    });
+
+});
+
+$('#m').keypress(function (e) {
+    if (e.which == 13) {
+        emitNewMessage();
+    }
+});
+
+function emitNewMessage() {
+     socket.emit('new message', {
+        message: $('#m').text(),
         parentMessageId: null
     });
 
-    $('#m').val('');
+    $('#m').text('');
+}
+
+$('form').submit(function(){
+    emitNewMessage();
     
     return false;
 });
@@ -15,15 +47,9 @@ function updateScroll(){
     $("#body").animate({ scrollTop: $("#messageContainer").height() }, 0);
 }
 
-(function($) {
-    $.fn.hasScrollBar = function() {
-        return this.get(0).scrollHeight > this.height();
-    }
-})(jQuery);
-
 function getMessageCount (id, callback) {
      socket.emit('messageCount',  { parentMessageId : id }, function (data) {
-         callback(data);
+         callback(data, id);
      });
 };
 
@@ -33,73 +59,157 @@ function getChildMessages (id, callback) {
      });
 };
 
+function getOlderMessages (id, date, callback) {
+     if ($('#messages').children().first().attr('date')) {
+         socket.emit('getOldMessages',  { cutoffdate : $('#messages').children().first().attr('date') }, function (data) {
+             for (var idx in data) {
+                 var payload = data[idx];
+                 
+                 var div = $('<div>');
+                 $('#messages').prepend(
+                 $('<li>').attr({"id":payload.id, "date":payload.timestamp})
+                    .append(div
+                    .attr(
+                        {
+                            "class":"well",
+                            "style":"display:none"
+                        }
+                    )));
+                    div.hide().fadeIn(1500);
+                    appendEntry($('#messages').find($('#'+payload.id)), div, payload.id, null, payload.username, payload.timestamp, payload.message);
+                 
+                    if (!$("#"+payload.id).find(".responseStatus").length) {
+                        $("#"+payload.id).append($('<div class=responseStatus id=responseStatus'+payload.id+'>'));
+                }  
+                 
+                $("#"+payload.id).append($('<div class=responses>'));
+                 
+                var callback = function(data, id) {
+                    var responses = $("#"+id).find(".responses");
+                    
+                    responses.hide();
+                    var toggled = false;
+                    var displayed = false;
+                    var loaded = false;
+                    var toggleResponsesVisibility = function () {
+                        if (!toggled)
+                        {
+                            getChildMessages(id, function(data) {
+                                for (var idx = 0; idx < data.length; idx++){
+                                    var item = data[idx];
+
+                                    if($("#"+item.parentId).find($(".responses")).length) {
+                                        appendEntry($("#"+item.parentId).find($(".responses")), $('<div>').attr(
+                                                {
+                                                    "class":"well",
+                                                    "style":"display:none",
+                                                    "id":item.id,
+                                                    "parentid":item.parentid
+                                                }
+                                            ).hide().fadeIn(1), item.id, item.parentId, item.username, item.timestamp, item.message);
+                                    }
+                                }
+                                loaded = true;
+
+                            });
+                            toggled = true;
+                        }
+
+                        if (!displayed)
+                        {
+                            if (loaded)
+                                responses.slideDown();
+                            else
+                                responses.show();
+
+                            displayed = true;
+                            $("#"+id).find(".showResponse").text("Hide responses");
+                        }
+                        else
+                        {
+                            responses.slideUp();
+                            displayed = false;
+                            $("#"+id).find(".showResponse").text("Show responses");
+                        }    
+                    };
+                   
+                    $("#responseStatus"+id).append($('<a class=showResponse>').text('Show responses').click(toggleResponsesVisibility)).append($('<span style=margin-left:5px class=badge>').text(data));
+                };
+                 
+               getMessageCount(payload.id, callback);
+             }
+         });
+     }
+};
+
 socket.on('messageCountUpdate', function(payload) {
      $("#"+payload.id).find(".badge").text(payload.responseCount);
 });
 
-socket.on('new message', function(payload){
-    //if($("#"+payload.id).length) return;
-    
-    if (payload.parentid) {
-        if($("#"+payload.parentid).find($(".responses")).length){
-            $("#"+payload.parentid).find($(".responses"))
-                .append($('<div>')
-                    .attr(
+function appendEntry(parentelement, newelement, id, parentid, username, timestamp, message) {
+    parentelement
+                .append(newelement
+                    .append($('<div>')
+                        .attr(
+                            {
+                                "class":"label"
+                            }
+                        )
+                        .append($('<span class="name">').text(username))
+                        .append($('<span class="time">').text(timestamp))
+                    )
+                    .append($('<div>').text(message))
+                    .click(function() { 
+                        if(parentid) { showResponseEntry(parentid); }
+                        else { showResponseEntry(id); } 
+                    })
+                 )
+}
+
+function handleChildMessage(payload) {
+    appendEntry($("#"+payload.parentid).find($(".responses")), $('<div>').attr(
                         {
                             "class":"well",
                             "style":"display:none",
                             "id":payload.id,
                             "parentid":payload.parentid
                         }
-                    ).hide().fadeIn(1500)
-                    .append($('<div>')
-                        .attr(
-                            {
-                                "class":"label"
-                            }
-                        )
-                        .append($('<span class="name">').text(payload.username))
-                        .append($('<span class="time">').text(payload.timestamp))
-                    )
-                    .append($('<div>').text(payload.message))
-                    .click(function(){showResponseEntry()})
-                 )
-                //.append($('<span>').text(payload.message));
-            return;
-        }
-    }
-    
-    $('#messages')
-        .append(
-            $('<li>').attr({"id":payload.id})
-                .append($('<div>')
+                    ).hide().fadeIn(1500), payload.id, payload.parentid, payload.username, payload.timestamp, payload.message);
+}
+
+function appendParentMessage(payload) {
+    var div = $('<div>');
+    $('#messages').append(
+            $('<li>').attr({"id":payload.id, "date":payload.timestamp})
+                .append(div
                     .attr(
                         {
                             "class":"well",
                             "style":"display:none"
                         }
-                    ).hide().fadeIn(1500)
-                    .append($('<div>')
-                        .attr(
-                            {
-                                "class":"label"
-                            }
-                        )
-                        .append($('<span class="name">').text(payload.username))
-                        .append($('<span class="time">').text(payload.timestamp))
-                    )
-                    .append($('<div>').text(payload.message))
-                    .click(function(){showResponseEntry()})
-                 )
-        );
+                    )));
+    div.hide().fadeIn(1500);
+    appendEntry($('#messages').find($('#'+payload.id)), div, payload.id, null, payload.username, payload.timestamp, payload.message);
+}
+
+socket.on('new message', function(payload){
+    if (payload.parentid) {
+        if($("#"+payload.parentid).find($(".responses")).length) {
+            handleChildMessage(payload);
+            
+            return;
+        }
+    }
     
-    if (!$("#"+payload.id).find(".responseStatus").length)
-    {
+    appendParentMessage(payload);
+    
+    if (!$("#"+payload.id).find(".responseStatus").length) {
         $("#"+payload.id).append($('<div id=responseStatus'+payload.id+'>'));
     }
     
     getMessageCount(payload.id, function(data) {
         $("#"+payload.id).find("#responseStatus"+payload.id).append($('<a class=showResponse>').text('Show responses').click(toggleResponsesVisibility)).append($('<span style=margin-left:5px class=badge>').text(data));
+        updateScroll();
     });
     
     $("#"+payload.id).append($('<div class=responses>'));
@@ -107,97 +217,84 @@ socket.on('new message', function(payload){
     var responses = $("#"+payload.id).find(".responses");
     responses.hide();
     var toggled = false;
-    var display = false;
+    var displayed = false;
     var loaded = false;
     var toggleResponsesVisibility = function () {
-        
         if (!toggled)
         {
             getChildMessages(payload.id, function(data) {
                 for (var idx = 0; idx < data.length; idx++){
                    var item = data[idx];
                    
-                   
                     if($("#"+item.parentId).find($(".responses")).length){
-                        $("#"+item.parentId).find($(".responses"))
-                            .append($('<div>')
-                                .attr(
-                                    {
-                                        "class":"well",
-                                        "style":"display:none",
-                                        "id":item.id,
-                                        "parentid":item.parentId
-                                    }
-                                ).hide().fadeIn(1)
-                                .append($('<div>')
-                                    .attr(
-                                        {
-                                            "class":"label"
-                                        }
-                                    )
-                                    .append($('<span class="name">').text(item.username))
-                                    .append($('<span class="time">').text(item.timestamp))
-                                )
-                                .append($('<div>').text(item.message))
-                                .click(function(){showResponseEntry()})
-                             )
+                        appendEntry($("#"+item.parentId).find($(".responses")), $('<div>').attr(
+                                {
+                                    "class":"well",
+                                    "style":"display:none",
+                                    "id":item.id,
+                                    "parentid":item.parentid
+                                }
+                            ).hide().fadeIn(1), item.id, item.parentId, item.username, item.timestamp, item.message);
+                        
                     }
                 }
                 loaded = true;
-                
             });
             toggled = true;
         }
         
-        if (!display)
+        if (!displayed)
         {
             if (loaded)
                 responses.slideDown();
             else
                 responses.show();
             
-            display = true;
+            displayed = true;
             $("#"+payload.id).find(".showResponse").text("Hide responses");
         }
         else
         {
             responses.slideUp();
-            display = false;
+            displayed = false;
             $("#"+payload.id).find(".showResponse").text("Show responses");
-        }
-
-        
-    };
-        
-    var showResponseEntry = function() {
-        if (!$("#"+payload.id).find($(".responseEntry")[0]).length) {
-            $("#"+payload.id)
-                .append($('<div>').attr({ 'class':'responseEntry' })
-                            .append($('<input>').attr({ 'placeholder':"Type response here...", 'type':'text', 'class':'inputMessage', 'parentMessageId':payload.id }))
-                            .append($('<button>').attr({ 'class':'btn btn-xs btn-default' }).text('X').click(function() { close() }))
-                        )
-                
-            var response = $("#"+payload.id).find($('.responseEntry')[0]);
-            var close = function() {
-                response.remove();
-            };
-            
-            response.find('input').keypress(function (e) {
-                if (e.which == 13) {
-                   socket.emit('new message', {
-                        message: response.find('input').val(),
-                        parentMessageId: payload.id
-                   });
-
-                   response.remove();
-                   return false;
-                }
-            });
-        }
+        }    
     };
 
-    updateScroll();
 });
+
+function showResponseEntry(id) {
+    if (!$("#"+id).find(".responseEntry").length) {
+
+        $("#"+id)
+            .append($('<div>').attr({ 'class':'responseEntry' })
+                    .append($('<div>').attr({ 'class':'responseEntryContainer' }).append($('<span>').attr({ 'class':'inputMessageResponse', 'parentMessageId':id, 'contenteditable':"true" }))))
+
+        var response = $("#"+id).find('.responseEntry');
+
+        var close = function() {
+            response.remove();
+        };
+
+        response.find('span').keypress(function (e) {
+            if (e.which == 13) {
+                socket.emit('new message', {
+                    message: response.find('span').text(),
+                    parentMessageId: id
+                });
+
+                close();
+                return false;
+            }
+        });
+    }
+    else if ($("#"+id).find(".responseEntry").css('display') == 'none') {
+        $("#"+id).find(".responseEntry").show();
+    }
+    else {
+        $("#"+id).find(".responseEntry").hide();
+    }
+}
 
 socket.on('user joined', function (data) {
     $('#messages').append($('<li>').text(data.username + ' joined'));

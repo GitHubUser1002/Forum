@@ -16,3 +16,7 @@ function sendPosition(position) {
         data: position.coords
     });
 }
+
+$(document).ready(function () {
+    getLocation();
+});

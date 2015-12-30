@@ -2,10 +2,13 @@ extends layout
 
 block content
     div(id='messageContainer', class='', style="margin-top:25px")
+        a(href="#", class="scrollup") Load More
+    
         h1=forum
         ul(class="pages", id="messages")
-        form(action="")
-            input(class="inputMessage", id="m" autocomplete="off", placeholder="Type here...")
+        form(class="inputMessageContainer")
+            div
+                span(class="inputMessage", id="m", contenteditable="true")
             button(class="btn btn-default") send
 
             script(src="https://code.jquery.com/jquery-1.10.2.min.js")

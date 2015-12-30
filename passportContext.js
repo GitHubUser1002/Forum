@@ -39,12 +39,20 @@ passport.use(new GoogleStrategy({
                 }
                 else if (user) {
                     console.log(user.displayName + ' logged in!'); // Space Ghost is a talk show host.
+                    
+                    if (user.avatarUrl != profile._json['image']['url']) {
+                        user.avatarUrl = profile._json['image']['url'];
+                        User.update({ _id : user._id }, user, { upsert : true }, function(err) {
+                            if (err) console.log(err);
+                        });
+                    }
                 }
                 else {
                     var newUser = new User({
                         strategy : 'Google',
                         emailAddress : profile.emails[0].value,
-                        displayName : profile.displayName
+                        displayName : profile.displayName,
+                        avatarUrl : profile._json['image']['url']
                     });
                     newUser.save(function (err) {
                         if (!err) {

@@ -16,21 +16,45 @@ function onUserConnect(socket, user, postalCode) {
 
 function getLastPosts(locationId, socketid) {
     Message.find({ locationKey : locationId, parentMessageKey : null })
-        .sort({ timeStamp : 'asc' })
-        .limit(25)
+        .sort({ timeStamp : -1 })
+        .limit(5)
         .populate('userKey')
         .exec(function(err, messages) {
-            messages.forEach(function(message) {
-                var socket = io.sockets.connected[socketid];
-                
-                socket.emit('new message', {
+            var socket = io.sockets.connected[socketid];
+             for (var idx = messages.length - 1; idx >= 0; idx--) {
+                var message = messages[idx];
+                 socket.emit('new message', {
                                 username: message.userKey.displayName,
                                 message: message.body,
                                 timestamp: message.timeStamp,
                                 id : message._id
                             });
+             }
+ 
         });
-    });
+}
+
+function getLastPostsWithCutoff(locationId, cutoff, fn) {
+    Message.find({ locationKey : locationId, parentMessageKey : null, timeStamp: {$lt: cutoff} })
+        .sort({ timeStamp : -1 }) //-1 desc, 1 asc
+        .limit(5)
+        .populate('userKey')
+        .exec(function(err, messages) {
+            var payload = [];
+        
+            for (var idx in messages) {
+                var message = messages[idx];
+                
+                 payload.push( {
+                                username: message.userKey.displayName,
+                                message: message.body,
+                                timestamp: message.timeStamp,
+                                id : message._id,   
+                                prepend : 1
+                            });
+            }
+            fn(payload);
+        });
 }
 
 function getChildPosts(parentId, fn) {
@@ -52,16 +76,6 @@ function getChildPosts(parentId, fn) {
             }
         
             fn(payload);
-        
-           /* messages.forEach(function(message) {
-               fn({
-                   username: message.userKey.displayName,
-                   message: message.body,
-                   timestamp: message.timeStamp,
-                   id : message._id,
-                   parentId : message.parentMessageKey
-               });
-        });*/
     });
 }
 
@@ -156,6 +170,12 @@ function subscribe(socket, user, postalCode) {
     
     socket.on('childMessages', function (arg, fn) {
         getChildPosts(arg.parentMessageId, fn);
+    });
+    
+    socket.on('getOldMessages', function (arg, fn) {
+        var dt = new Date(arg.cutoffdate);
+        console.log(dt);
+        getLastPostsWithCutoff(socket.handshake.session.location._id, dt, fn);
     });
 };
 
